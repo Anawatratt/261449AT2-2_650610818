@@ -1,0 +1,62 @@
+name: Integration Testing CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov
+
+      - name: Run all tests with coverage
+        run: |
+          pytest -v --cov=. --cov-report=term --cov-report=html --cov-report=xml
+
+      - name: Run Top-down tests
+        run: |
+          pytest -m topdown -v
+
+      - name: Run Bottom-up tests
+        run: |
+          pytest -m bottomup -v
+
+      - name: Run Sandwich tests
+        run: |
+          pytest -m sandwich -v
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: matrix.python-version == '3.11'
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Archive coverage HTML report
+        uses: actions/upload-artifact@v3
+        if: matrix.python-version == '3.11'
+        with:
+          name: coverage-report
+          path: htmlcov/
